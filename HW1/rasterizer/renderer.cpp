@@ -85,6 +85,7 @@ void Renderer::Render(int argc, char** argv)
         else
         {
             // First load the matrices to the rasterizer
+            // print loader.GetTransforms().size()
             for (size_t index = 0; index != loader.GetTransforms().size(); ++index)
             {
                 MeshTransform transform = loader.GetTransforms()[index];
