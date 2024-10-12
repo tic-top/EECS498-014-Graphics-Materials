@@ -138,13 +138,15 @@ Vec3 localDirToWorld(const Vec3& direction, const Vec3& normal) {
     return res;
 }
 
+
+
 Vec3 Random::randomHemisphereDirection(const Vec3 &normal) {
     /* 
         Uniformly generate a direction on the hemisphere oriented towards the positive y axis,
-            represented by sphere coordinates
+        represented by sphere coordinates
     */
-    float azimuth = 0.0f;
-    float elevation = 0.0f;
+    float azimuth = 2.0f * PI * randUniformFloat();
+    float elevation = acos(randUniformFloat());
 
     // Convert spherical coordinates to Cartesian
     float x = cos(azimuth) * sin(elevation);
@@ -155,17 +157,20 @@ Vec3 Random::randomHemisphereDirection(const Vec3 &normal) {
 }
 
 Vec3 Random::cosWeightedHemisphere(const Vec3 &normal) {
-    /* 
-        Generate a direction on the hemisphere oriented towards the positive y axis, 
-            cosine-weighted by the elevation angle.
-    */
-    float azimuth = 0.0f;
-    float elevation = 0.0f;
+    // Generate two random numbers between 0 and 1
+    float r1 = randUniformFloat();
+    float r2 = randUniformFloat();
 
-    // Convert spherical coordinates to Cartesian
+    // Use polar coordinates to compute direction with cosine weighting
+    float azimuth = 2.0f * PI * r1;
+    float elevation = acos(sqrt(r2));
+
+    // Convert spherical coordinates to Cartesian coordinates
     float x = cos(azimuth) * sin(elevation);
     float y = sin(azimuth) * sin(elevation);
-    float z = cos(elevation);
+    float z = cos(elevation); // Weighting towards normal, z is up
 
+    // Convert local (x, y, z) to world coordinates based on the normal
     return localDirToWorld({x, y, z}, normal);
 }
+
