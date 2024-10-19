@@ -2,6 +2,7 @@
 #include "Config.h"
 #include <cassert>
 #include <algorithm>
+#include <cmath>
 
 // Very important! Set it to 1E-9 and you'll likely see self-occlusion artifacts.
 constexpr float MIN_TRAVEL_TIME = 1e-3;
@@ -256,12 +257,72 @@ Vec3 Intersection::getEmission() const {
     return object->ke;
 }
 
+
+// Helper function to compute the Fresnel term using Schlick's approximation
+Vec3 fresnelSchlick(const Vec3& F0, float cosTheta) {
+    return F0 + (Vec3(1.0f) - F0) * std::pow(1.0f - cosTheta, 5.0f);
+}
+
+// Geometry function using the Smith method
+float geometrySmith(float NdotV, float NdotL, float roughness) {
+    float k = (roughness + 1) * (roughness + 1) / 8.0f;
+    float ggx1 = NdotV / (NdotV * (1 - k) + k);
+    float ggx2 = NdotL / (NdotL * (1 - k) + k);
+    return ggx1 * ggx2;
+}
+
+// Normal Distribution Function using Trowbridge-Reitz GGX
+float distributionGGX(const Vec3& normal, const Vec3& halfVector, float roughness) {
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float NdotH = std::max(normal.dot(halfVector), 0.0f);
+    float NdotH2 = NdotH * NdotH;
+
+    float num = a2;
+    float denom = (NdotH2 * (a2 - 1.0f) + 1.0f);
+    denom = PI * denom * denom;
+
+    return num / denom;
+}
+
 Vec3 Intersection::calcBRDF(const Vec3& inDir, const Vec3& outDir) const {
-    assert (happened);
+    assert(happened);
     const Vec3& normal = mesh->normal;
     if (inDir.dot(normal) > 0 || outDir.dot(normal) < 0) return {};
-    // BRDF of a diffuse object
-    /*-----------------------------------------------------------*/
-    return getDiffuseColor() / PI;
-    /*-----------------------------------------------------------*/
+
+    // Cook-Torrance BRDF calculation
+    Vec3 halfVector = (inDir + outDir);
+    halfVector = halfVector / halfVector.getLength();
+    float NdotL = std::max(normal.dot(outDir), 0.0f);
+    float NdotV = std::max(normal.dot(inDir), 0.0f);
+    float NdotH = std::max(normal.dot(halfVector), 0.0f);
+    float VdotH = std::max(inDir.dot(halfVector), 0.0f);
+
+    // Material properties
+    Vec3 F0 = Vec3(0.04f); // Default reflectance at normal incidence for dielectrics
+    if (object->metalness > 0.0f) {
+        F0 = object->kd.x; // Assuming metalness is stored in kd.x
+    }
+    float roughness = object->roughness;
+
+    // Compute the Fresnel term
+    Vec3 F = fresnelSchlick(F0, VdotH);
+
+    // Compute the Geometry term
+    float G = geometrySmith(NdotV, NdotL, roughness);
+
+    // Compute the Normal Distribution Function
+    float D = distributionGGX(normal, halfVector, roughness);
+
+    // Combine terms for Cook-Torrance BRDF
+    Vec3 specular = (D * F * G) / (4.0f * NdotV * NdotL + 1e-4f);
+
+    // Lambertian diffuse term
+    Vec3 diffuse = getDiffuseColor() / PI;
+
+    // Mix diffuse and specular components based on surface properties
+    float kS = std::max({F.x, F.y, F.z}); // Specular reflection coefficient
+    float kD = 1.0f - kS; // Diffuse reflection coefficient
+
+    return kD * diffuse + specular;
 }

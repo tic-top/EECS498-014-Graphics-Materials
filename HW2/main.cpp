@@ -5,6 +5,9 @@
 #include <fstream>
 #include <algorithm>
 #include <chrono>
+#include <thread>
+#include <vector>
+
 
 constexpr float GAMMA = 0.6f;
 
@@ -40,6 +43,29 @@ unsigned char toLinear(float sRGB) {
     return 255 * std::pow(std::clamp(sRGB, 0.0f, 1.0f), GAMMA);
 }
 
+// Function to render a range of rows
+void renderRows(Scene& scene, Vec3 cameraPos, std::vector<std::vector<Vec3>>& image, int startY, int endY, int width, int height) {
+    for (int y = startY; y < endY; y++) {
+        for (int x = 0; x < width; x++) {
+            Vec3 worldPos = {
+                (float)x / width - 0.5f, 
+                1.5f - (float)y / height,
+                (cameraPos.z + 1.0f) / 2
+            };
+            Ray ray {
+                cameraPos,
+                worldPos - cameraPos,
+            };
+            ray.dir.normalize();
+            Vec3 value {};
+            for (int i = 0; i < SPP; i++) {
+                value += scene.trace(ray, MAX_DEPTH);
+            }
+            image[y][x] = value / SPP;
+        }
+    }
+}
+
 int main() {
     using namespace std::chrono;
     auto startTime = high_resolution_clock::now();
@@ -60,29 +86,23 @@ int main() {
         std::cout << "Debug mode disabled. Progress output will be in brief." <<  '\n';
     }
 
-    // x: right
-    // y: up
-    // z: outwards
-    for (size_t y = 0; y < height; y++) {
-        for (size_t x = 0; x < width; x++) {
-            Vec3 worldPos = {
-                (float)x / width - 0.5f, 
-                1.5f - (float)y / height,
-                (cameraPos.z + 1.0f) / 2
-            };
-            Ray ray {
-                cameraPos,
-                worldPos - cameraPos,
-            };
-            ray.dir.normalize();
-            Vec3 value {};
-            for (int i = 0; i < SPP; i++) {
-                value += scene.trace(ray, MAX_DEPTH);
-            }
-            image[y][x] = value / SPP;
-            UpdateProgress((float)(y * width + x) / (width * height));
-        }
+    // Determine the number of threads to use
+    int numThreads = std::thread::hardware_concurrency();
+    int rowsPerThread = height / numThreads;
+    std::vector<std::thread> threads;
+
+    // Launch threads to render different parts of the image
+    for (int i = 0; i < numThreads; i++) {
+        int startY = i * rowsPerThread;
+        int endY = (i == numThreads - 1) ? height : startY + rowsPerThread;
+        threads.emplace_back(renderRows, std::ref(scene), cameraPos, std::ref(image), startY, endY, width, height);
     }
+
+    // Wait for all threads to finish
+    for (auto& t : threads) {
+        t.join();
+    }
+
     std::cout << std::endl;
 
     auto finishTime = high_resolution_clock::now();

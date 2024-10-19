@@ -65,6 +65,9 @@ public:
     Vec3 kd; /* albedo */
     Vec3 ke; /* emission */
     bool hasEmission = false;
+    // New material properties for PBR
+    float roughness = 0.5f; // Default value
+    float metalness = 0.0f; // Default value
     /**
      * @brief sample a surface point
     */

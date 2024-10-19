@@ -12,6 +12,7 @@ public:
     float z = 0.0f;
     Vec3() = default;
     Vec3(float x, float y, float z);
+    Vec3(float value) : x(value), y(value), z(value) {}
 
     static Vec3 minOfTwo(const Vec3& v1, const Vec3& v2);
     static Vec3 maxOfTwo(const Vec3& v1, const Vec3& v2);

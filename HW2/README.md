@@ -240,3 +240,13 @@ Vec3 Scene::trace(const Ray &ray, int bouncesLeft, bool discardEmission) {
     return Lo;
 }
 ```
+
+
+
+### Feature
+
+Multi-threading acceleration. 
+
+Physically-based Rendering (PBR).
+
+![feature](feature.png)
