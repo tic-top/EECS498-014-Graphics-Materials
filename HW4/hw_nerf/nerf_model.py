@@ -38,16 +38,18 @@ def get_rays(H, W, focal, pose):
     #  Note: the focal length here is in the unit of pixels. The coordinates are normalized with respect to the focal length (which means that should be divided by focal).
     # Plus, Cast to the device (cuda)
     
-    # dirs = 
+    dirs = torch.stack([(u - W * 0.5) / focal, 
+                        -(v - H * 0.5) / focal, 
+                        -torch.ones_like(u)], dim=-1)
     
     # Step 2: Transform the direction vectors (dirs) from camera coordinates to world coordinates.
     # The provided pose is camera-to-world matrix. Please note the expected rays_d should have the shape of [N, 3], where N is the number of rays.
 
-    # rays_d = 
+    rays_d = (dirs @ pose[:3, :3].T).reshape(-1, 3)
 
     # Step 3: Normalize the direction vectors on the last dimension (only 3 channels) to ensure they have unit length (Hint: check torch.norm and look at keepdim parameter of it).
 
-    # rays_d = ...
+    rays_d = rays_d / torch.norm(rays_d, dim=-1, keepdim=True)
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -84,7 +86,11 @@ def positional_encoder(p, L_embed=6):
         #                                   TODO: Task 2                            #
         #############################################################################
         # hint: following the order of (sin, cos), like for fn in [torch.sin, torch.cos]:
-
+        freq = 2.0**i * p
+        
+        # Add sin and cos of the frequency
+        for fn in [torch.sin, torch.cos]:
+            rets.append(fn(freq))
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
@@ -119,15 +125,17 @@ def cumprod_exclusive(tensor: torch.Tensor):
     #############################################################################
     # Compute the cumulative product along the last dimension of the tensor. Hint: Check torch.cumprod
     
-    # cumprod = ...
+    cumprod = torch.cumprod(tensor, dim=-1)
     
     # Roll the elements along the last dimension by one position. Hint: Check torch.roll
     # This shifts the cumulative products to make them exclusive.
 
-    # cumprod = ...
+    cumprod = torch.roll(cumprod, shifts=1, dims=-1)
 
     # Set the first element of the last dimension to 1, as the exclusive product of the first element is always 1.
     
+    cumprod[..., 0] = 1
+
     # Your code here
     #############################################################################
     #                             END OF YOUR CODE                              #
@@ -192,7 +200,7 @@ def render(model, rays_o, rays_d, near, far, n_samples, rand=False):
     #############################################################################
     # Compute 3D coordinates of the sampled points along the rays.
 
-    # points = ...
+    points = rays_o[..., None, :] + rays_d[..., None, :] * t[..., :, None]
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
