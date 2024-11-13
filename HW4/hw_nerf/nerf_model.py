@@ -35,12 +35,12 @@ def get_rays(H, W, focal, pose):
     # Step 1: Calculate the direction vectors for each ray originating from the camera center in the camera coordinate.
     # We assume the camera looks towards -z. 
     # The y direction and H direction in figure 2 is opposite, so it should also be multiplied with -1
-    #  Note: the focal length here is in the unit of pixels. The coordinates are normalized with respect to the focal length (which means that should be divided by focal).
+    # Note: the focal length here is in the unit of pixels. The coordinates are normalized with respect to the focal length (which means that should be divided by focal).
     # Plus, Cast to the device (cuda)
     
     dirs = torch.stack([(u - W * 0.5) / focal, 
                         -(v - H * 0.5) / focal, 
-                        -torch.ones_like(u)], dim=-1)
+                        -torch.ones_like(u)], dim=-1).to(device)
     
     # Step 2: Transform the direction vectors (dirs) from camera coordinates to world coordinates.
     # The provided pose is camera-to-world matrix. Please note the expected rays_d should have the shape of [N, 3], where N is the number of rays.
@@ -224,18 +224,18 @@ def render(model, rays_o, rays_d, near, far, n_samples, rand=False):
     # Tries to solve the calculation from Matrix perspective instead of the For Loop
     # Perform volume rendering to obtain the weights of each point.
 
-    # one_e_10 = ...
-    # dists = ...
-    # alpha = ...
-    # weights = ...
-    
-    # Compute the weighted sum of RGB values along each ray to get the final pixel color.
+    one_e_10 = torch.tensor(1e10).to(device)
+    dists = torch.cat([t[..., 1:] - t[..., :-1], one_e_10], -1)
+    alpha = 1.0 - torch.exp(-sigma * dists)
+    # Calculate weights
+    weights = alpha * cumprod_exclusive(1.0 - alpha + 1e-10)
 
-    # rgb_map = ...
+    # Compute the weighted sum of RGB values along each ray to get the final pixel color.
+    rgb_map = torch.sum(weights[..., None] * rgb, dim=-2)
 
     # Compute the depth map as the weighted sum of sampled depths.
+    depth_map = torch.sum(weights * t, dim=-1)
 
-    # depth_map = ...
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
