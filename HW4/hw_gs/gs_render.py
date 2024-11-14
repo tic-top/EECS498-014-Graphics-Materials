@@ -338,7 +338,7 @@ class GaussRenderer(nn.Module):
 
                 # Step 4: Calculate accumulated alpha, color, and depth for each tile pixel
                 # Accumulated alpha (based on transparency model in instruction Eq. (8))
-                acc_alpha = alpha * T.sum(dim=1, keepdim=True)
+                acc_alpha = (alpha * T.sum(dim=1, keepdim=True)).sum(dim=1)
 
                 # Accumulated color (weighted by Gaussian weights and opacity in Eq. (5))
                 tile_color = (sorted_color * gauss_weight.unsqueeze(-1)).sum(dim=1)
