@@ -329,12 +329,22 @@ class GaussRenderer(nn.Module):
                 # Step 3: calculate the accumulated alpha, color and depth.
 
                 gauss_weight = torch.exp(-0.5 * torch.einsum('bpi,pij,bpj->bp', dx, sorted_inverse_conv, dx))
-                alpha = (gauss_weight[..., None] * sorted_opacity[None]).clamp(max=0.99)
-                T = (1 - alpha).cumprod(dim=1)# Hint: Check Eq. (6) in the instruction pdf
 
-                acc_alpha = alpha * T.sum(dim=1) # Hint: Check Eq. (8) in the instruction pdf
-                tile_color = (sorted_color * gauss_weight.unsqueeze(-1)).sum(dim=1)  # Hint: Check Eq. (5) in the instruction pdf
-                tile_depth = (sorted_depths * gauss_weight).sum(dim=1)  # Hint: Check Eq. (7) in the instruction pdf
+                # Step 2: Calculate alpha using Gaussian weights and sorted_opacity, then clamp values
+                alpha = (gauss_weight[..., None] * sorted_opacity[None]).clamp(max=0.99)
+
+                # Step 3: Calculate cumulative transparency T across each Gaussian, per pixel
+                T = (1 - alpha).cumprod(dim=1)
+
+                # Step 4: Calculate accumulated alpha, color, and depth for each tile pixel
+                # Accumulated alpha (based on transparency model in instruction Eq. (8))
+                acc_alpha = alpha * T.sum(dim=1, keepdim=True)
+
+                # Accumulated color (weighted by Gaussian weights and opacity in Eq. (5))
+                tile_color = (sorted_color * gauss_weight.unsqueeze(-1)).sum(dim=1)
+
+                # Accumulated depth (weighted by Gaussian weights in Eq. (7))
+                tile_depth = (sorted_depths * gauss_weight).sum(dim=1)
                 #############################################################################
                 #                             END OF YOUR CODE                              #
                 #############################################################################
