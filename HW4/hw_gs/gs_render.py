@@ -336,7 +336,7 @@ class GaussRenderer(nn.Module):
                 alpha = (gauss_weight[..., None] * sorted_opacity[None]).clip(max=0.99)
                 T = torch.ones_like(alpha)
                 T[:, 1:] = torch.cumprod(1 - alpha[:, :-1], dim=-1) # Hint: Check Eq. (6) in the instruction pdf
-                acc_alpha = torch.sum(alpha[..., 0] * T, dim=1)
+                acc_alpha = torch.sum(alpha * T, dim=1)
                 tile_color = torch.sum(alpha * sorted_color[None] * T[..., None], dim=1) + (1 - acc_alpha[..., None]) * self.white_bkgd
                 tile_depth = torch.sum(alpha[..., 0] * sorted_depths[None] * T, dim=1)
                 #############################################################################
