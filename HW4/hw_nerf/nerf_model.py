@@ -225,7 +225,7 @@ def render(model, rays_o, rays_d, near, far, n_samples, rand=False):
     # Perform volume rendering to obtain the weights of each point.
 
     one_e_10 = torch.tensor(1e10).to(device)
-    dists = torch.cat([t[..., 1:] - t[..., :-1], one_e_10], -1)
+    dists = torch.cat((t[..., 1:] - t[..., :-1], one_e_10.expand(t[..., :1].shape)), -1)
     alpha = 1.0 - torch.exp(-sigma * dists)
     # Calculate weights
     weights = alpha * cumprod_exclusive(1.0 - alpha + 1e-10)
