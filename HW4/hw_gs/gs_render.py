@@ -69,11 +69,13 @@ def build_rotation(r):
     R[:, 0, 0] = 1 - 2 * (y * y + z * z)
     R[:, 0, 1] = 2 * (x * y - r * z)
     R[:, 0, 2] = 2 * (x * z + r * y)
-
+    
+    # Second row
     R[:, 1, 0] = 2 * (x * y + r * z)
     R[:, 1, 1] = 1 - 2 * (x * x + z * z)
     R[:, 1, 2] = 2 * (y * z - r * x)
-
+    
+    # Third row
     R[:, 2, 0] = 2 * (x * z - r * y)
     R[:, 2, 1] = 2 * (y * z + r * x)
     R[:, 2, 2] = 1 - 2 * (x * x + y * y)
@@ -105,7 +107,9 @@ def build_scaling_rotation(scaling_vector, quaternion_vector):
     #############################################################################
     # Get the scaling matrix from the scaling vector
     # Hint: Check Formula 3 in the isntruction pdf
-    S = torch.diag_embed(scaling_vector)
+    S[:, 0, 0] = scaling_vector[:, 0]  # sx
+    S[:, 1, 1] = scaling_vector[:, 1]  # sy
+    S[:, 2, 2] = scaling_vector[:, 2]  # sz
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -179,11 +183,8 @@ def build_covariance_2d(mean3d, cov3d, viewmatrix, fov_x, fov_y, focal_x, focal_
     # Calculate the 2D covariance matrix cov2d
     # Hint: Check Args explaination for cov3d; For clean code of matrix multiplication, consider using @
 
-    cov3d_rot = W @ cov3d @ W.T  # Rotate the covariance into the camera space
-
-    # Step 2: Apply the Jacobian to project the rotated 3D covariance into 2D screen space
-    cov2d = J[..., :2, :] @ cov3d_rot @ J[..., :2, :].transpose(-2, -1)
-
+    cov2d = J @ W @ cov3d @ W.T @ J.T
+    
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -286,17 +287,14 @@ class GaussRenderer(nn.Module):
                 #############################################################################
                 # check if the 2D gaussian intersects with the tile 
                 # To do so, we need to check if the rectangle of the 2D gaussian (rect) intersects with the tile
-
-                # Define the bounding box of the current tile
-                tile_min = torch.tensor([w, h]).to("cuda")
-                tile_max = torch.tensor([w + TILE_SIZE, h + TILE_SIZE]).to("cuda")
-
-                # Check if the Gaussian’s rectangle (rect_min, rect_max) intersects with the tile
-                # A Gaussian intersects if rect_max is greater than tile_min and rect_min is less than tile_max
-                in_mask = (
-                    (rect[1] > tile_min) & (rect[0] < tile_max)
-                ).all(dim=-1)
-                
+                tile_top_left = torch.tensor([w, h], device=rect[0].device)
+                tile_bottom_right = torch.tensor([min(w + TILE_SIZE, camera.image_width), 
+                                        min(h + TILE_SIZE, camera.image_height)], 
+                                        device=rect[0].device)
+                in_mask = (rect[0][:, 0] < tile_bottom_right[0]) & \
+                  (rect[1][:, 0] > tile_top_left[0]) & \
+                  (rect[0][:, 1] < tile_bottom_right[1]) & \
+                  (rect[1][:, 1] > tile_top_left[1])
                 #############################################################################
                 #                             END OF YOUR CODE                              #
                 #############################################################################
