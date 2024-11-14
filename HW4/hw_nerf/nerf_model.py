@@ -232,8 +232,6 @@ def render(model, rays_o, rays_d, near, far, n_samples, rand=False):
 
     # Compute the weighted sum of RGB values along each ray to get the final pixel color.
     rgb_map = torch.sum(weights[..., None] * rgb, dim=-2)
-    # reshape
-    rgb_map = rgb_map.reshape(*rays_o.shape[:-1], 3)
 
     # Compute the depth map as the weighted sum of sampled depths.
     depth_map = torch.sum(weights * t, dim=-1)
