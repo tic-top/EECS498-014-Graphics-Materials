@@ -67,7 +67,6 @@ def train(rawData, model, optimizer, n_iters=3000):
         rgb = rgb.reshape(H, W, 3)
         depth = depth.reshape(H, W)
         optimizer.zero_grad()
-        print(rgb.shape, target.shape)
         image_loss = torch.nn.functional.mse_loss(rgb, target)
         image_loss.backward() # calculate the gradient w.s.t image_loss
         optimizer.step() # do update
