@@ -63,12 +63,12 @@ def train(rawData, model, optimizer, n_iters=3000):
         # 
 
         rays_o, rays_d = get_rays(H, W, focal, pose)
-        print("rayod", rays_o.shape, rays_d.shape)
+        # print("rayod", rays_o.shape, rays_d.shape)
         rgb, depth = render(model, rays_o, rays_d, near=1., far=7., n_samples=n_samples)
-        print("rgb", rgb.shape)
-        print("target", target.shape)
+        # print("rgb", rgb.shape)
+        # print("target", target.shape)
         optimizer.zero_grad()
-        image_loss = torch.nn.functional.mse_loss(rgb, target)
+        image_loss = torch.nn.functional.mse_loss(rgb, target.reshape(H*W,3))
         image_loss.backward() # calculate the gradient w.s.t image_loss
         optimizer.step() # do update
 
@@ -153,6 +153,8 @@ def main():
         # Render the scene using the current model state. You may want to use near = 2, far = 6, n_samples = 64 
         
         rgb, depth = render(nerf, rays_o, rays_d, near=2., far=6., n_samples=64)
+        rgb = rgb.reshape(H, W, 3)
+        depth = depth.reshape(H, W)
 
         #############################################################################
         #                             END OF YOUR CODE                              #
@@ -161,13 +163,11 @@ def main():
 
         plt.subplot(131)
         picture = rgb.cpu()
-        picture = picture.reshape(H, W, 3)
         plt.title("RGB Prediction #{}".format(test_img_idx))
         plt.imshow(picture)
 
         plt.subplot(132)
         picture = depth.cpu() * (rgb.cpu().mean(-1)>1e-2)
-        picture = picture.reshape(H, W)
         plt.imshow(picture, cmap='gray')
         plt.title("Depth Prediction #{}".format(test_img_idx))
 
@@ -193,6 +193,8 @@ def main():
             # Render the scene using the current model state. You may want to use near = 2, far = 6, n_samples = 64.
 
             rgb, depth = render(nerf, rays_o, rays_d, near=2., far=6., n_samples=64)
+            rgb = rgb.reshape(H, W, 3)
+            depth = depth.reshape(H, W)
             #############################################################################
             #                             END OF YOUR CODE                              #
             #############################################################################
