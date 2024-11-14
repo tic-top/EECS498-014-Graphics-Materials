@@ -333,11 +333,13 @@ class GaussRenderer(nn.Module):
                 # tile_depth = ... # Hint: Check Eq. (7) in the instruction pdf
 
                 gauss_weight = torch.exp(-0.5 * (dx[:, :, None, :] @ sorted_inverse_conv @ dx[..., None]).squeeze()) # Hint: Check step 1 in the instruction pdf
-                alpha = (gauss_weight[..., None] * sorted_opacity[None]).clip(max=0.99)
+                alpha = (gauss_weight * sorted_opacity.T).clip(max=0.99) # Hint: Check step 2 in the instruction pdf
                 T = torch.ones_like(alpha)
                 T[:, 1:] = torch.cumprod(1 - alpha[:, :-1], dim=-1) # Hint: Check Eq. (6) in the instruction pdf
-                acc_alpha = torch.sum(alpha * T, dim=1)
-                tile_color = torch.sum((T * alpha)[:, :, None] * sorted_color[None, :, :], dim=1) + (1 - acc_alpha)[:, None] * self.white_bkgd # Hint: Check Eq. (5) in the instruction pdf
+
+                acc_alpha = torch.sum(alpha * T, dim=1) # Hint: Check Eq. (8) in the instruction pdf
+                weighted_color = (T * alpha)[:, :, None] * sorted_color[None, :, :]  # Shape: [B, P, 3]
+                tile_color = torch.sum(weighted_color, dim=1) + (1 - acc_alpha)[:, None] * self.white_bkgd # Hint: Check Eq. (5) in the instruction pdf
                 tile_depth = torch.sum(T * alpha * sorted_depths[None, ...], dim=1) # Hint: Check Eq. (7) in the instruction pdf
                #############################################################################
                 #                             END OF YOUR CODE                              #
