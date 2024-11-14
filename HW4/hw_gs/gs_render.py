@@ -336,7 +336,8 @@ class GaussRenderer(nn.Module):
                 alpha = (gauss_weight[..., None] * sorted_opacity[None]).clip(max=0.99)
                 T = torch.cumprod(1 - alpha[..., 0], dim=1)
                 acc_alpha = torch.sum(alpha[..., 0] * T, dim=1)
-                tile_color = torch.sum(alpha * sorted_color[None] * T[..., None], dim=1) # + (1 - acc_alpha)[..., None] * self.white_bkgd
+                background_color = torch.tensor([1.0, 1.0, 1.0], device='cuda') if self.white_bkgd else torch.tensor([0.0, 0.0, 0.0], device='cuda')
+                tile_color = torch.sum(alpha * sorted_color[None] * T[..., None], dim=1) + (1 - acc_alpha[..., None]) * background_color
                 tile_depth = torch.sum(alpha[..., 0] * sorted_depths[None] * T, dim=1)
                 #############################################################################
                 #                             END OF YOUR CODE                              #
