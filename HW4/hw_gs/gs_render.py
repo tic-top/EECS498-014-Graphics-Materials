@@ -66,6 +66,17 @@ def build_rotation(r):
     # Get the rotation matrix from the quaternion
     # Here, we already help you initialize the Rotation Matrix to be (3x3) all zero matrix
     R = torch.zeros((q.size(0), 3, 3), device="cuda")
+    R[:, 0, 0] = 1 - 2 * (y * y + z * z)
+    R[:, 0, 1] = 2 * (x * y - r * z)
+    R[:, 0, 2] = 2 * (x * z + r * y)
+
+    R[:, 1, 0] = 2 * (x * y + r * z)
+    R[:, 1, 1] = 1 - 2 * (x * x + z * z)
+    R[:, 1, 2] = 2 * (y * z - r * x)
+
+    R[:, 2, 0] = 2 * (x * z - r * y)
+    R[:, 2, 1] = 2 * (y * z + r * x)
+    R[:, 2, 2] = 1 - 2 * (x * x + y * y)
 
     #############################################################################
     #                             END OF YOUR CODE                              #
@@ -95,7 +106,7 @@ def build_scaling_rotation(scaling_vector, quaternion_vector):
     # Get the scaling matrix from the scaling vector
     # Hint: Check Formula 3 in the isntruction pdf
 
-    # S = ...
+    S = torch.zeros((scaling_vector.size(0), 3, 3), device="cuda")
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -169,7 +180,11 @@ def build_covariance_2d(mean3d, cov3d, viewmatrix, fov_x, fov_y, focal_x, focal_
     # Calculate the 2D covariance matrix cov2d
     # Hint: Check Args explaination for cov3d; For clean code of matrix multiplication, consider using @
 
-    # cov2d = ...
+    cov3d_rot = W @ cov3d @ W.T  # Rotate the covariance into the camera space
+
+    # Step 2: Apply the Jacobian to project the rotated 3D covariance into 2D screen space
+    cov2d = J[..., :2, :] @ cov3d_rot @ J[..., :2, :].transpose(-2, -1)
+
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -273,7 +288,13 @@ class GaussRenderer(nn.Module):
                 # check if the 2D gaussian intersects with the tile 
                 # To do so, we need to check if the rectangle of the 2D gaussian (rect) intersects with the tile
 
-                # in_mask = .....
+                # Define the bounding box of the current tile
+                tile_top_left = torch.tensor([w, h], device="cuda")
+                tile_bottom_right = torch.tensor([w + TILE_SIZE, h + TILE_SIZE], device="cuda")
+
+                # Check for overlap by comparing coordinates
+                in_mask = (rect[:, 0, 0] < tile_bottom_right[0]) & (rect[:, 1, 0] > tile_top_left[0]) & \
+                        (rect[:, 0, 1] < tile_bottom_right[1]) & (rect[:, 1, 1] > tile_top_left[1])
                 #############################################################################
                 #                             END OF YOUR CODE                              #
                 #############################################################################
@@ -304,13 +325,13 @@ class GaussRenderer(nn.Module):
                 # Step 2: calculate alpha. alpha = (gauss_weight[..., None] * sorted_opacity[None]).clip(max=0.99)
                 # Step 3: calculate the accumulated alpha, color and depth.
 
-                # gauss_weight = ... # Hint: Check step 1 in the instruction pdf
-                # alpha = ... # Hint: Check step 2 in the instruction pdf
-                # T = ... # Hint: Check Eq. (6) in the instruction pdf
+                gauss_weight = torch.exp(-0.5 * torch.einsum('bpi,pij,bpj->bp', dx, sorted_inverse_conv, dx))
+                alpha = (gauss_weight[..., None] * sorted_opacity[None]).clamp(max=0.99)
+                T = (1 - alpha).cumprod(dim=1)# Hint: Check Eq. (6) in the instruction pdf
 
-                # acc_alpha =  ... # Hint: Check Eq. (8) in the instruction pdf
-                # tile_color = ... # Hint: Check Eq. (5) in the instruction pdf
-                # tile_depth = ... # Hint: Check Eq. (7) in the instruction pdf
+                acc_alpha = alpha * T.sum(dim=1) # Hint: Check Eq. (8) in the instruction pdf
+                tile_color = (sorted_color * gauss_weight.unsqueeze(-1)).sum(dim=1)  # Hint: Check Eq. (5) in the instruction pdf
+                tile_depth = (sorted_depths * gauss_weight).sum(dim=1)  # Hint: Check Eq. (7) in the instruction pdf
                 #############################################################################
                 #                             END OF YOUR CODE                              #
                 #############################################################################
