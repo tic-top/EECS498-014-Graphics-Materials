@@ -330,15 +330,18 @@ class GaussRenderer(nn.Module):
                 # tile_color = ... # Hint: Check Eq. (5) in the instruction pdf
                 # tile_depth = ... # Hint: Check Eq. (7) in the instruction pdf
 
-                gauss_weight = torch.exp(-0.5 * (dx[:, :, None, :] @ sorted_inverse_conv @ dx[..., None]).squeeze()) # Hint: Check step 1 in the instruction pdf
-                alpha = (gauss_weight * sorted_opacity.T).clip(max=0.99) # Hint: Check step 2 in the instruction pdf
-                T = torch.ones_like(alpha)
-                T[:, 1:] = torch.cumprod(1 - alpha[:, :-1], dim=-1) # Hint: Check Eq. (6) in the instruction pdf
-                acc_alpha = torch.sum(alpha * T, dim=1) # Hint: Check Eq. (8) in the instruction pdf
-                weighted_color = (T * alpha)[:, :, None] * sorted_color[None, :, :]  # Shape: [B, P, 3]
-                tile_color = torch.sum(weighted_color, dim=1) + (1 - acc_alpha)[:, None] * self.white_bkgd # Hint: Check Eq. (5) in the instruction pdf
-                tile_depth = torch.sum(T * alpha * sorted_depths[None, ...], dim=1) # Hint: Check Eq. (7) in the instruction pdf
-               #############################################################################
+                gauss_weight = torch.exp(-0.5 * torch.einsum('bpi,pij,bpj->bp', dx, sorted_inverse_conv, dx))
+
+                # Step 2: Calculate alpha
+                alpha = (gauss_weight[..., None] * sorted_opacity[None]).clip(max=0.99)
+
+                # Step 3: Calculate accumulated alpha, color, and depth
+                T = torch.cumprod(1 - alpha[..., 0], dim=1)
+                acc_alpha = torch.sum(alpha[..., 0] * T, dim=1)
+
+                tile_color = torch.sum(alpha * sorted_color[None] * T[..., None], dim=1) + (1 - acc_alpha)[..., None] * self.background_color
+                tile_depth = torch.sum(alpha[..., 0] * sorted_depths[None] * T, dim=1)
+                #############################################################################
                 #                             END OF YOUR CODE                              #
                 #############################################################################
                 self.render_color[h : h + TILE_SIZE, w : w + TILE_SIZE] = (
