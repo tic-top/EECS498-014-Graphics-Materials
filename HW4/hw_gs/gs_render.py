@@ -287,13 +287,11 @@ class GaussRenderer(nn.Module):
                 #############################################################################
                 # check if the 2D gaussian intersects with the tile 
                 # To do so, we need to check if the rectangle of the 2D gaussian (rect) intersects with the tile
-                tile_min = torch.tensor([h, w], device='cuda')
-                tile_max = torch.tensor([h + TILE_SIZE, w + TILE_SIZE], device='cuda')
-
-                # Check intersection
-                in_mask = (rect[0][:, 0] < tile_max[0]) & (rect[1][:, 0] > tile_min[0]) & \
-                        (rect[0][:, 1] < tile_max[1]) & (rect[1][:, 1] > tile_min[1])
-
+                lower_w = rect[0][:, 0] < w + TILE_SIZE
+                lower_h = rect[0][:, 1] < h + TILE_SIZE
+                upper_w = rect[1][:, 0] > w 
+                upper_h = rect[1][:, 1] > h 
+                in_mask = lower_w & lower_h & upper_w & upper_h
                 #############################################################################
                 #                             END OF YOUR CODE                              #
                 #############################################################################
@@ -336,7 +334,6 @@ class GaussRenderer(nn.Module):
                 alpha = (gauss_weight * sorted_opacity.T).clip(max=0.99) # Hint: Check step 2 in the instruction pdf
                 T = torch.ones_like(alpha)
                 T[:, 1:] = torch.cumprod(1 - alpha[:, :-1], dim=-1) # Hint: Check Eq. (6) in the instruction pdf
-
                 acc_alpha = torch.sum(alpha * T, dim=1) # Hint: Check Eq. (8) in the instruction pdf
                 weighted_color = (T * alpha)[:, :, None] * sorted_color[None, :, :]  # Shape: [B, P, 3]
                 tile_color = torch.sum(weighted_color, dim=1) + (1 - acc_alpha)[:, None] * self.white_bkgd # Hint: Check Eq. (5) in the instruction pdf
