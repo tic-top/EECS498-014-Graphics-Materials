@@ -105,12 +105,7 @@ def build_scaling_rotation(scaling_vector, quaternion_vector):
     #############################################################################
     # Get the scaling matrix from the scaling vector
     # Hint: Check Formula 3 in the isntruction pdf
-    for i in range(scaling_vector.shape[0]):
-        # Diagonal matrix for scaling, using the corresponding scaling values
-        S[i, 0, 0] = scaling_vector[i, 0]  # sx
-        S[i, 1, 1] = scaling_vector[i, 1]  # sy
-        S[i, 2, 2] = scaling_vector[i, 2]  # sz
-    
+    S = torch.diag_embed(scaling_vector)
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
