@@ -332,7 +332,7 @@ class GaussRenderer(nn.Module):
                 # tile_color = ... # Hint: Check Eq. (5) in the instruction pdf
                 # tile_depth = ... # Hint: Check Eq. (7) in the instruction pdf
 
-                gauss_weight = torch.exp(-0.5 * torch.einsum('bpi,pij,bpj->bp', dx, sorted_inverse_conv, dx))
+                gauss_weight = torch.exp(-0.5 * dx.T @ sorted_inverse_conv @ dx)
                 alpha = (gauss_weight[..., None] * sorted_opacity[None]).clip(max=0.99)
                 T = torch.cumprod(1 - alpha[..., 0], dim=1)
                 acc_alpha = torch.sum(alpha[..., 0] * T, dim=1)
