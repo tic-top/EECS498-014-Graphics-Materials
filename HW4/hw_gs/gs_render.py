@@ -183,8 +183,8 @@ def build_covariance_2d(mean3d, cov3d, viewmatrix, fov_x, fov_y, focal_x, focal_
     # Calculate the 2D covariance matrix cov2d
     # Hint: Check Args explaination for cov3d; For clean code of matrix multiplication, consider using @
 
-    cov2d = J @ W @ cov3d @ W.T @ J.T
-    
+    cov2d = J @ (W @ cov3d @ W.T) @ J.transpose(-1, -2)
+
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -287,14 +287,13 @@ class GaussRenderer(nn.Module):
                 #############################################################################
                 # check if the 2D gaussian intersects with the tile 
                 # To do so, we need to check if the rectangle of the 2D gaussian (rect) intersects with the tile
-                tile_top_left = torch.tensor([w, h], device=rect[0].device)
-                tile_bottom_right = torch.tensor([min(w + TILE_SIZE, camera.image_width), 
-                                        min(h + TILE_SIZE, camera.image_height)], 
-                                        device=rect[0].device)
-                in_mask = (rect[0][:, 0] < tile_bottom_right[0]) & \
-                  (rect[1][:, 0] > tile_top_left[0]) & \
-                  (rect[0][:, 1] < tile_bottom_right[1]) & \
-                  (rect[1][:, 1] > tile_top_left[1])
+                tile_top_left = torch.tensor([h, w])
+                tile_bottom_right = torch.tensor([h + TILE_SIZE, w + TILE_SIZE])
+
+                # Check if the Gaussian's bounding box intersects with the tile's bounding box
+                in_mask = (rect[0][:, 0] < tile_bottom_right[0]) & (rect[1][:, 0] > tile_top_left[0]) & \
+                        (rect[0][:, 1] < tile_bottom_right[1]) & (rect[1][:, 1] > tile_top_left[1])
+
                 #############################################################################
                 #                             END OF YOUR CODE                              #
                 #############################################################################
@@ -325,23 +324,20 @@ class GaussRenderer(nn.Module):
                 # Step 2: calculate alpha. alpha = (gauss_weight[..., None] * sorted_opacity[None]).clip(max=0.99)
                 # Step 3: calculate the accumulated alpha, color and depth.
 
+                # gauss_weight = ... # Hint: Check step 1 in the instruction pdf
+                # alpha = ... # Hint: Check step 2 in the instruction pdf
+                # T = ... # Hint: Check Eq. (6) in the instruction pdf
+
+                # acc_alpha =  ... # Hint: Check Eq. (8) in the instruction pdf
+                # tile_color = ... # Hint: Check Eq. (5) in the instruction pdf
+                # tile_depth = ... # Hint: Check Eq. (7) in the instruction pdf
+
                 gauss_weight = torch.exp(-0.5 * torch.einsum('bpi,pij,bpj->bp', dx, sorted_inverse_conv, dx))
-
-                # Step 2: Calculate alpha using Gaussian weights and sorted_opacity, then clamp values
-                alpha = (gauss_weight[..., None] * sorted_opacity[None]).clamp(max=0.99)
-
-                # Step 3: Calculate cumulative transparency T across each Gaussian, per pixel
-                T = (1 - alpha).cumprod(dim=1)
-
-                # Step 4: Calculate accumulated alpha, color, and depth for each tile pixel
-                # Accumulated alpha (based on transparency model in instruction Eq. (8))
-                acc_alpha = (alpha * T.sum(dim=1, keepdim=True)).sum(dim=1)
-
-                # Accumulated color (weighted by Gaussian weights and opacity in Eq. (5))
-                tile_color = (sorted_color * gauss_weight.unsqueeze(-1)).sum(dim=1)
-
-                # Accumulated depth (weighted by Gaussian weights in Eq. (7))
-                tile_depth = (sorted_depths * gauss_weight).sum(dim=1)
+                alpha = (gauss_weight[..., None] * sorted_opacity[None]).clip(max=0.99)
+                T = torch.cumprod(1 - alpha[..., 0], dim=1)
+                acc_alpha = torch.sum(alpha[..., 0] * T, dim=1)
+                tile_color = torch.sum(alpha * sorted_color[None] * T[..., None], dim=1) + (1 - acc_alpha)[..., None] * self.background_color
+                tile_depth = torch.sum(alpha[..., 0] * sorted_depths[None] * T, dim=1)
                 #############################################################################
                 #                             END OF YOUR CODE                              #
                 #############################################################################
