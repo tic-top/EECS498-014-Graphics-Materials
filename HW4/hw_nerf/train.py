@@ -63,8 +63,10 @@ def train(rawData, model, optimizer, n_iters=3000):
         # 
 
         rays_o, rays_d = get_rays(H, W, focal, pose)
+        print("rayod", rays_o.shape, rays_d.shape)
         rgb, depth = render(model, rays_o, rays_d, near=1., far=7., n_samples=n_samples)
-
+        print("rgb", rgb.shape)
+        print("target", target.shape)
         optimizer.zero_grad()
         image_loss = torch.nn.functional.mse_loss(rgb, target)
         image_loss.backward() # calculate the gradient w.s.t image_loss
