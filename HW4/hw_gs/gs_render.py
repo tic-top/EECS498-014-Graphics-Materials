@@ -287,12 +287,12 @@ class GaussRenderer(nn.Module):
                 #############################################################################
                 # check if the 2D gaussian intersects with the tile 
                 # To do so, we need to check if the rectangle of the 2D gaussian (rect) intersects with the tile
-                tile_top_left = torch.tensor([h, w])
-                tile_bottom_right = torch.tensor([h + TILE_SIZE, w + TILE_SIZE])
+                tile_min = torch.tensor([h, w], device='cuda')
+                tile_max = torch.tensor([h + TILE_SIZE, w + TILE_SIZE], device='cuda')
 
-                # Check if the Gaussian's bounding box intersects with the tile's bounding box
-                in_mask = (rect[0][:, 0] < tile_bottom_right[0]) & (rect[1][:, 0] > tile_top_left[0]) & \
-                        (rect[0][:, 1] < tile_bottom_right[1]) & (rect[1][:, 1] > tile_top_left[1])
+                # Check intersection
+                in_mask = (rect[0][:, 0] < tile_max[0]) & (rect[1][:, 0] > tile_min[0]) & \
+                        (rect[0][:, 1] < tile_max[1]) & (rect[1][:, 1] > tile_min[1])
 
                 #############################################################################
                 #                             END OF YOUR CODE                              #
