@@ -339,7 +339,7 @@ class GaussRenderer(nn.Module):
                 T = torch.cumprod(1 - alpha[..., 0], dim=1)
                 acc_alpha = torch.sum(alpha[..., 0] * T, dim=1)
 
-                tile_color = torch.sum(alpha * sorted_color[None] * T[..., None], dim=1) + (1 - acc_alpha)[..., None] * self.background_color
+                tile_color = torch.sum(alpha * sorted_color[None] * T[..., None], dim=1) + (1 - acc_alpha)[..., None] * self.white_bkgd
                 tile_depth = torch.sum(alpha[..., 0] * sorted_depths[None] * T, dim=1)
                 #############################################################################
                 #                             END OF YOUR CODE                              #
