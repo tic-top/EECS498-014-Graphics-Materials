@@ -53,7 +53,7 @@ def rand_translation(x, ratio=0.125):
     x = x_pad.permute(0, 2, 3, 1).contiguous()[grid_batch, grid_x, grid_y].permute(0, 3, 1, 2).contiguous()
     return x
 
-
+import random
 def rand_cutout(x, ratio=0.5):
     ''' 
         Random Cutout Data Augmentation 
@@ -63,11 +63,17 @@ def rand_cutout(x, ratio=0.5):
     Returns:
         x (torch):      Pytorch image with cutout 
     '''
-    # TODO: Implement the Rand Cutout; The range should be randomly chosen in 25%-50% of the height and width; position is random.
+    B, C, H, W = x.shape
+    cutout_height = random.randint(int(H * 0.25), int(H * ratio))
+    cutout_width = random.randint(int(W * 0.25), int(W * ratio))
 
-    ###############################################################################################################
+    top_left_y = random.randint(0, H - cutout_height)
+    top_left_x = random.randint(0, W - cutout_width)
 
+    x[:, :, top_left_y:top_left_y + cutout_height, top_left_x:top_left_x + cutout_width] = 0
+    
     return x
+
 
 
 AUGMENT_FNS = {

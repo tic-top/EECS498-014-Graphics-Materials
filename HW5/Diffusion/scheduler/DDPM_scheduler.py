@@ -442,12 +442,12 @@ class DDPMScheduler(SchedulerMixin, ConfigMixin):
             predicted_variance = None
 
         ############################################ TODO #1 ##################################################
-        alpha_prod_t = None                 # Check Formula (3)   "t" variable is the variable of the timestep
-        alpha_prod_t_prev = None            # Check Formula (4)   "prev_t" variable is the t-1 timestep. Also, think about minor case if prev_t will be less than zero?
-        beta_prod_t = None                  # Check Formula (5)
-        beta_prod_t_prev = None             # Check Formula (6)
-        current_alpha_t = None              # Check Formula (7)   
-        current_beta_t = None               # Check Formula (8)
+        alpha_prod_t = self.alphas_cumprod[t]                # Formula (3)
+        alpha_prod_t_prev = self.alphas_cumprod[prev_t] if prev_t >= 0 else torch.tensor(1.0).to(alpha_prod_t.device)  # Formula (4)
+        beta_prod_t = 1 - alpha_prod_t                       # Formula (5)
+        beta_prod_t_prev = 1 - alpha_prod_t_prev             # Formula (6)
+        current_alpha_t = alpha_prod_t / alpha_prod_t_prev   # Formula (7)
+        current_beta_t = 1 - current_alpha_t                 # Formula (8)
 
         #######################################################################################################
 
@@ -460,7 +460,7 @@ class DDPMScheduler(SchedulerMixin, ConfigMixin):
         # Extra paramter correspondence:
         #       epsilon(x_t) -> model_output
         #       x_t -> sample
-        pred_original_sample = None            
+        pred_original_sample = (sample - (beta_prod_t**0.5) * model_output) / (alpha_prod_t**0.5)            
 
         ###############################################################################################################
 
@@ -477,7 +477,10 @@ class DDPMScheduler(SchedulerMixin, ConfigMixin):
         ############################################ TODO #3 ############################################################
         # Complete Formula (2) based on what you have in TODO #1 and TODO #2  
         #  ˜σ_i*z term is implemented below, you can skip that. 
-        pred_prev_sample = None
+        pred_prev_sample = (
+            (alpha_prod_t_prev**0.5 * current_beta_t) / beta_prod_t * pred_original_sample
+            + (current_alpha_t**0.5 * beta_prod_t_prev) / beta_prod_t * sample
+        )
 
         #################################################################################################################
 

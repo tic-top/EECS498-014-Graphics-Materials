@@ -404,7 +404,7 @@ class DDIMScheduler(SchedulerMixin, ConfigMixin):
         # The variable naming is the same as DDPM, please check DDPM note again.
         
         beta_prod_t = None                    # Check Formula (10)
-        pred_original_sample = None           # Check "predicted x0" term in Formula (9)
+        pred_original_sample = (sample - (beta_prod_t**0.5) * model_output) / (alpha_prod_t**0.5)
 
         ############################################# Code Ends here for DDIM ##########################################################
 
@@ -431,7 +431,10 @@ class DDIMScheduler(SchedulerMixin, ConfigMixin):
         # NOTE: random noise is already implemented, no need to add this term.
         # NOTE: The formula variable naming is the same as DDPM, check DDPM code for the variable name.  
         # NOTE: sigma_t in formula is named as sigma_t in this file
-        prev_sample = None                  
+        prev_sample = (
+            (alpha_prod_t_prev**0.5) * pred_original_sample
+            + (1 - alpha_prod_t_prev - sigma_t**2) ** 0.5 * model_output
+        )              
         
 
         ###########################################################################################################
@@ -476,7 +479,11 @@ class DDIMScheduler(SchedulerMixin, ConfigMixin):
             #           ζ_t   -> DPS_scale
             # NOTE 2: A(x0) can be calculated by operator.forward(pred_original_sample, mask)
             # NOTE 3: ∇x_t can be calculated by torch.autograd.grad(outputs = ?, inputs = sample)[0]
-            prev_sample = None
+            measurement_pred = operator.forward(pred_original_sample, mask)  # A(x0)
+            grad_xt = torch.autograd.grad(
+                outputs=torch.norm(measurement_pred - measurement, p=2), inputs=sample, retain_graph=True
+            )[0]
+            prev_sample = prev_sample - DPS_scale * grad_xt
 
             ##############################################################################################################
 

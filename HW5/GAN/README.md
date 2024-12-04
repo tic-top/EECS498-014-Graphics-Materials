@@ -4,7 +4,7 @@
 ## Installation
 module load python3.9-anaconda
 
-conda create -n GAN python=3.9
+conda create -n GAN python=3.9 -y
 
 conda activate GAN
 
