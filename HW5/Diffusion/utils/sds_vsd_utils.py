@@ -121,7 +121,7 @@ def get_loss_weights(betas, args):
 
         # Implement the weight term of formula (14) and (15) at timestep t
         # Note: sqrt_1m_alphas_cumprod is the sqrt(1-alpha_t^2)
-        weight = None
+        weight = (sqrt_1m_alphas_cumprod[t] ** 2).item() 
 
         ####################### End Your Code Here ###########################
 
@@ -225,35 +225,25 @@ def sds_vsd_grad_diffuser(unet, noisy_latents, noise, text_embeddings, t, unet_p
     with torch.no_grad():
         noise_pred = predict_noise0_diffuser(unet, noisy_latents, text_embeddings, t, guidance_scale=guidance_scale, cross_attention_kwargs=unet_cross_attention_kwargs, scheduler=scheduler, half_inference=half_inference)
 
-
     # Gradient calculation
     if generation_mode == 'sds':
         # SDS
         noise_pred_phi = noise
 
         ######################## TODO #1: Code starts here for SDS ###############################
-
         # Implement the epsilon_phi - noise term in Formula (16) and multiply it with grad_scale
-        # noise is the noise_pred_phi
-        # epsilon_phi is noise_pred
-        grad_ = None
-
+        grad_ = grad_scale * (noise_pred - noise_pred_phi)
         ##################### Code ends here for SDS ################################################
-
 
     elif generation_mode == 'vsd':
         # VSD 
         with torch.no_grad():
             # Call predict_noise0_diffuser using unet_phi (LoRA instance), all other setting should be the same as 
             noise_pred_phi = predict_noise0_diffuser(unet_phi, noisy_latents, text_embeddings, t, guidance_scale=cfg_phi, cross_attention_kwargs=cross_attention_kwargs, scheduler=scheduler, lora_v=lora_v, half_inference=half_inference)
-        
 
         ################################ TODO #3: Code starts here for VSD #################################
-
-        # Implement the grad calcualtion based on the Formula (17) provided in the instructions. Also, multiply the result with grad_scale
-        # Hint: Understand what noise_pred_phi refers to (No need to dive into predict_noise0_diffuser).
-        grad_ = None
-
+        # Implement the grad calculation based on the Formula (17) provided in the instructions.
+        grad_ = grad_scale * (noise_pred - noise_pred_phi)
         ################################## Code ends here for VSD ########################################
 
     grad_ = torch.nan_to_num(grad_)

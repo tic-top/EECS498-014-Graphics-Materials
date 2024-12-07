@@ -403,8 +403,8 @@ class DDIMScheduler(SchedulerMixin, ConfigMixin):
         ####################################################### TODO #1: DDIM ##########################################################
         # The variable naming is the same as DDPM, please check DDPM note again.
         
-        beta_prod_t = None                    # Check Formula (10)
-        pred_original_sample = (sample - (beta_prod_t**0.5) * model_output) / (alpha_prod_t**0.5)
+        beta_prod_t = 1 - alpha_prod_t
+        pred_original_sample = (sample - torch.sqrt(1 - alpha_prod_t) * model_output) / torch.sqrt(alpha_prod_t)
 
         ############################################# Code Ends here for DDIM ##########################################################
 
@@ -432,10 +432,9 @@ class DDIMScheduler(SchedulerMixin, ConfigMixin):
         # NOTE: The formula variable naming is the same as DDPM, check DDPM code for the variable name.  
         # NOTE: sigma_t in formula is named as sigma_t in this file
         prev_sample = (
-            (alpha_prod_t_prev**0.5) * pred_original_sample
-            + (1 - alpha_prod_t_prev - sigma_t**2) ** 0.5 * model_output
-        )              
-        
+            torch.sqrt(alpha_prod_t_prev) * pred_original_sample +
+            torch.sqrt(1 - alpha_prod_t_prev - sigma_t**2) * model_output
+        )       
 
         ###########################################################################################################
 
@@ -479,11 +478,16 @@ class DDIMScheduler(SchedulerMixin, ConfigMixin):
             #           ζ_t   -> DPS_scale
             # NOTE 2: A(x0) can be calculated by operator.forward(pred_original_sample, mask)
             # NOTE 3: ∇x_t can be calculated by torch.autograd.grad(outputs = ?, inputs = sample)[0]
-            measurement_pred = operator.forward(pred_original_sample, mask)  # A(x0)
-            grad_xt = torch.autograd.grad(
-                outputs=torch.norm(measurement_pred - measurement, p=2), inputs=sample, retain_graph=True
-            )[0]
-            prev_sample = prev_sample - DPS_scale * grad_xt
+            with torch.enable_grad():
+                sample.requires_grad_(True)
+                A_x0 = operator.forward(pred_original_sample, mask)  # A(x_0)
+                grad = torch.autograd.grad(
+                    outputs=((A_x0 - measurement)**2).sum(),
+                    inputs=sample
+                )[0]
+
+            prev_sample = prev_sample - DPS_scale * grad
+
 
             ##############################################################################################################
 
